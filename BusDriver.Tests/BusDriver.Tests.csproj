@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BusDriver\BusDriver.Core\BusDriver.Core.csproj" />
+    <ProjectReference Include="..\BusDriver.Core\BusDriver.Core.csproj" />
   </ItemGroup>
 
 </Project>

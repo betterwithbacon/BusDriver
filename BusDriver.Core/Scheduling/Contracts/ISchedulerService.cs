@@ -1,4 +1,6 @@
-﻿using BusDriver.Core.Events.Contracts;
+﻿
+
+using BusDriver.Core.Events;
 
 namespace BusDriver.Core.Scheduling.Contracts
 {

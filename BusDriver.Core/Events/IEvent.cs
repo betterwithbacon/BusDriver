@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace BusDriver.Core.Events.Contracts
+namespace BusDriver.Core.Events
 {
-    interface IEvent
+	public interface IEvent
     {
     }
 }
