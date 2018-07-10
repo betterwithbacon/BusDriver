@@ -4,7 +4,7 @@ using System.Text;
 
 namespace BusDriver.Core.Events
 {
-    public interface IEventSource
+    public interface IEventProducer
     {
 		IEnumerable<IEvent> GetEvents();
 	}

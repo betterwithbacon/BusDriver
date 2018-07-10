@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace BusDriver.Core.Events.Time
 {
-    public class TimeEventSource : IEventSource
+    public class TimeEventProducer : IEventProducer
     {
 		public IEnumerable<IEvent> GetEvents()
 		{

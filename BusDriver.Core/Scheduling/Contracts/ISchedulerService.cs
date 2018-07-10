@@ -6,6 +6,6 @@ namespace BusDriver.Core.Scheduling.Contracts
 {
 	public interface ISchedulerService
 	{
-		void RegisterProducer(IEventSource eventSource);
+		void RegisterProducer(IEventProducer eventSource);
 	}
 }

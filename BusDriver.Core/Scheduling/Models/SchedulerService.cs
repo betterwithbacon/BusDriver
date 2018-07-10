@@ -10,15 +10,15 @@ namespace BusDriver.Core.Scheduling.Models
 {
 	public class SchedulerService : ISchedulerService
 	{
-		ConcurrentBag<IEventSource> Sources { get; set; }
+		ConcurrentBag<IEventProducer> Producers { get; set; }
 		ConcurrentDictionary<Type, IList<IEventConsumer>> Consumers { get; set; } //<IEventSource> Sources { get; set; }
 
 		public SchedulerService()
 		{
-			Sources = new ConcurrentBag<IEventSource>();
+			Producers = new ConcurrentBag<IEventProducer>();
 		}
 
-		public void RegisterProducer(IEventSource eventSource)
+		public void RegisterProducer(IEventProducer eventSource)
 		{
 			throw new NotImplementedException();
 		}

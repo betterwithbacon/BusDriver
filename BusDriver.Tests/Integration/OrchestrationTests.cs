@@ -1,25 +1,31 @@
 using BusDriver.Core.Events;
+using BusDriver.Core.Events.Logging;
+using BusDriver.Core.Events.Time;
 using BusDriver.Core.Scheduling.Models;
 using NSubstitute;
 using System;
 using Xunit;
 
-namespace BusDriver.Tests
+namespace BusDriver.Tests.Integration
 {
     public class OrchestrationTests
     {
         [Fact]
 		[Trait("","")]
-        public void BasicStartup()
+        public void TimeEventShouldTriggerLogWriteEventWhichShouldThenWriteToLog()
         {
 			// create the orchestrator
 			var scheduler = new SchedulerService();
 
 			// load up producers			
-			var eventSource = Substitute.For<IEventSource>();
-			var eventSource2 = Substitute.For<IEventSource>();
-			scheduler.RegisterProducer(eventSource);
-			scheduler.RegisterProducer(eventSource2);
+			var timeEventProducer = new TimeEventProducer();
+			var timeEventConsumer = new TimeEventConsumer();
+			var logWriteConsumer = new LogEventConsumer();
+			var diskProvider = new DiskProvider();
+
+			scheduler.RegisterProducer(timeEventProducer);
+			scheduler.RegisterConsumer<TimeEvent>(timeEventConsumer);
+			scheduler.RegisterConsumer<LogEvent>(logWriteConsumer);
 
 			// run and ensure the listeners are all responding
 
