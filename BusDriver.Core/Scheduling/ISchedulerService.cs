@@ -2,7 +2,7 @@
 
 using BusDriver.Core.Events;
 
-namespace BusDriver.Core.Scheduling.Contracts
+namespace BusDriver.Core.Scheduling
 {
 	public interface ISchedulerService
 	{

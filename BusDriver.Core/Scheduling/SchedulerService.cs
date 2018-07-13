@@ -1,12 +1,10 @@
 ﻿using BusDriver.Core.Events;
-
-using BusDriver.Core.Scheduling.Contracts;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 
-namespace BusDriver.Core.Scheduling.Models
+namespace BusDriver.Core.Scheduling
 {
 	public class SchedulerService : ISchedulerService
 	{
