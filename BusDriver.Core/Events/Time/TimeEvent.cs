@@ -3,13 +3,16 @@ using System;
 
 namespace BusDriver.Core.Events.Time
 {
-	public struct TimeEvent : IEvent
+	public class TimeEvent : IEvent
 	{
-		public DateTime Time { get;  private set; }
+		public DateTime Time { get;  set; }
 
-		public TimeEvent(DateTime time)
+		public IEventContext Context { get;  private set; }
+
+		public TimeEvent(IEventContext context, DateTime time)
 		{
-			Time = time;
+			Context = context;
+			Time = time;			
 		}
 	}
 }

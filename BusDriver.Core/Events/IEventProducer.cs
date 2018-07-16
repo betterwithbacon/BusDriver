@@ -1,11 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
 namespace BusDriver.Core.Events
 {
     public interface IEventProducer
     {
-		IEnumerable<IEvent> GetEvents();
+		IEnumerable<IEvent> GetEvents(PointInTime pointInTime);
+
+		void Emit(IEvent ev);
+
+		void Init(IEventContext context);
 	}
 }

@@ -5,7 +5,7 @@ using System.Text;
 
 namespace BusDriver.Core.Events
 {
-	public interface IEventConsumer
+	public interface IEventConsumer : IEventActionTrigger
 	{
 		IList<Type> Consumes { get; }
 

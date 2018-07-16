@@ -8,6 +8,9 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BusDriver.Tests", "BusDriver.Tests\BusDriver.Tests.csproj", "{9D009843-2B91-4B0D-BCA5-111DD04A463D}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dependencies", "dependencies", "{12A7D42C-38F8-4845-AF1A-3498539A9929}"
+	ProjectSection(SolutionItems) = preProject
+		dependencies\WarehouseCore.dll = dependencies\WarehouseCore.dll
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

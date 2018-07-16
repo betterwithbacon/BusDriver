@@ -4,9 +4,7 @@ using System.Text;
 
 namespace BusDriver.Core.Events
 {
-	public interface IEvent
-	{
-		IEventContext Context { get; }
-		DateTime Time { get; }
-	}
+    public interface IEventActionTrigger
+    {
+    }
 }

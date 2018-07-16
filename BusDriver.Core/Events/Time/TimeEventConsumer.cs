@@ -1,17 +1,35 @@
 ﻿
+using BusDriver.Core.Scheduling;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace BusDriver.Core.Events.Time
 {
 	public class TimeEventConsumer : IEventConsumer
 	{
-		public IList<Type> Consumes =>  new [] { typeof(TimeEvent) };
+		public IList<Type> Consumes => new[] { typeof(TimeEvent) };
+
+		public List<Schedule> Schedules { get; private set; }
+
+		public Action<IEventConsumer, IEvent> EventAction { get; set;}
+
+		public TimeEventConsumer()
+		{
+			Schedules = new List<Schedule>();
+		}
 
 		public void HandleEvent(IEvent ev)
 		{
-			throw new NotImplementedException();
+			this.ThrowIfInvalidEvent(ev);
+			var timeEvent = ev as TimeEvent;
+
+			// evaluate all of the schedules to see if one is a hit, if so, then run the action configured for this consumer
+			if(Schedules.Any(s => s.IsMatch(timeEvent.Time)))
+			{
+				EventAction(this, ev);
+			}
 		}
 	}
 }
