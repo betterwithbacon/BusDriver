@@ -14,5 +14,10 @@ namespace BusDriver.Core.Events.Time
 			Context = context;
 			Time = time;			
 		}
+
+		public override string ToString()
+		{
+			return $"Time: {Time}";
+		}
 	}
 }

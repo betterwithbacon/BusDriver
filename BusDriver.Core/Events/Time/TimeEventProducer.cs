@@ -1,16 +1,27 @@
 ﻿
+using BusDriver.Core.Logging;
 using System;
 using System.Collections.Generic;
 
 namespace BusDriver.Core.Events.Time
 {
-    public class TimeEventProducer : IEventProducer
-	{	
+    public class TimeEventProducer : IEventProducer, ILogSource
+	{
+		public string Identifier { get; private set; }
+
+		public string LogDescriptor => Identifier;
+
 		IEventContext Context { get; set; }
+
+		public TimeEventProducer()
+		{
+		}
 
 		public void Emit(IEvent ev)
 		{
 			AssertIsReady();
+
+			Context.Log(LogType.EventSent, ev.ToString(), source: this);
 
 			Context?.HandleEvent(ev);
 		}
@@ -21,15 +32,22 @@ namespace BusDriver.Core.Events.Time
 			yield return new TimeEvent(Context, DateTime.UtcNow);
 		}
 
-		public void Init(IEventContext context)
+		public void Init(IEventContext context, string identifier)
 		{
-			Context = context;
+			Context = context;			
+			Identifier = identifier;
+			Context.Log(LogType.ProducerStartup, message: $"{this} starting up...", source: this);			
 		}
 
 		void AssertIsReady()
 		{
 			if (Context == null)
 				throw new InvalidOperationException("Context is not set.");
+		}
+
+		public override string ToString()
+		{
+			return Identifier;
 		}
 	}
 }
