@@ -19,4 +19,10 @@
     <ProjectReference Include="..\BusDriver.Core\BusDriver.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="WarehouseCore">
+      <HintPath>..\dependencies\WarehouseCore.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

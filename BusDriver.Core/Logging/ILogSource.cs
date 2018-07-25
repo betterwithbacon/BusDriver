@@ -6,6 +6,6 @@ namespace BusDriver.Core.Logging
 {
     public interface ILogSource
     {
-		string LogDescriptor { get; }
-    }
+		string Identifier { get; }
+	}
 }

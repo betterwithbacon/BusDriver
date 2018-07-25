@@ -14,7 +14,7 @@ namespace BusDriver.Core.Logging
 
 		public override string ToString()
 		{
-			return $"[{Source?.LogDescriptor.ToString() ?? "event"}] {Time}: {Message}";
+			return $"[{Time.ToString("hh:mm:ss.fff")}]: {LogType}: [{Source?.Identifier.ToString() ?? "unknown sender"}] {Message}";
 		}
 	}
 }

@@ -1,14 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using BusDriver.Core.Logging;
+using System.Collections.Generic;
 
 namespace BusDriver.Core.Events
 {
-    public interface IEventProducer
+    public interface IEventProducer : ILogSource
     {
-		string Identifier { get; }
+		new string Identifier { get; }
 
 		IEnumerable<IEvent> GetEvents(PointInTime pointInTime);
-
-		void Emit(IEvent ev);
 
 		void Init(IEventContext context, string identifier);
 	}

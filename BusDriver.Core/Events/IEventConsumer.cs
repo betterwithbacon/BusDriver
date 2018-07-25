@@ -1,15 +1,20 @@
-﻿using System;
+﻿using BusDriver.Core.Logging;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
 namespace BusDriver.Core.Events
 {
-	public interface IEventConsumer : IEventActionTrigger
+	public interface IEventConsumer : IEventActionTrigger, ILogSource
 	{
 		IList<Type> Consumes { get; }
 
 		void HandleEvent(IEvent ev);
+
+		string Identifier { get; }
+		
+		void Init(IEventContext context, string identifier);
 	}
 
 	public static class IEventExtensions

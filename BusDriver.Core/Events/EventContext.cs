@@ -31,7 +31,7 @@ namespace BusDriver.Core.Events
 			// and register this as the context with the producer
 			eventProducer.Init(this, $"{eventProducer.GetType().Name}-{GetNewPseudoRandomString()}");
 
-			Log(LogType.ProducerRegistered, $"{eventProducer} registered with Context");			
+			Log(LogType.ProducerRegistered, source: eventProducer as ILogSource);
 		}
 
 		static string GetNewPseudoRandomString()
@@ -43,7 +43,12 @@ namespace BusDriver.Core.Events
 		public void RegisterConsumer<TEvent>(IEventConsumer eventConsumer)
 			where TEvent : IEvent
 		{
-			Consumers.GetOrAdd(typeof(TEvent), new List<IEventConsumer> { eventConsumer })?.Add(eventConsumer);
+
+			Consumers.GetOrAdd(typeof(TEvent), new List<IEventConsumer> { eventConsumer }); //?.Add(eventConsumer);
+
+			eventConsumer.Init(this, $"{eventConsumer.GetType().Name}-{GetNewPseudoRandomString()}");
+
+			Log(LogType.ConsumerRegistered, source: eventConsumer as ILogSource);
 		}
 
 		public void Initialize()
@@ -54,7 +59,16 @@ namespace BusDriver.Core.Events
 			// TODO: start the scheduler to poll for messages
 		}
 
-		public void HandleEvent(IEvent ev)
+		public void RaiseEvent(IEvent ev, ILogSource logSource)
+		{
+			// log the event was raised within the context
+			Log(LogType.EventSent, ev.ToString(), source: logSource);
+			
+			// then handle it
+			HandleEvent(ev);
+		}
+
+		void HandleEvent(IEvent ev)
 		{
 			if (ev == null)
 				return;
@@ -98,6 +112,11 @@ namespace BusDriver.Core.Events
 		{
 			foreach (var logAction in SessionLogActions)
 				logAction(message);
+		}
+
+		public DateTime GetTimeNow()
+		{
+			return DateTime.Now;
 		}
 	}
 }

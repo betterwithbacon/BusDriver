@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace BusDriver.Core.Events.Time
 {
-    public class TimeEventProducer : IEventProducer, ILogSource
+    public class TimeEventProducer : IEventProducer
 	{
 		public string Identifier { get; private set; }
 
@@ -17,14 +17,12 @@ namespace BusDriver.Core.Events.Time
 		{
 		}
 
-		public void Emit(IEvent ev)
-		{
-			AssertIsReady();
+		//public void Emit(IEvent ev)
+		//{
+		//	AssertIsReady();
 
-			Context.Log(LogType.EventSent, ev.ToString(), source: this);
-
-			Context?.HandleEvent(ev);
-		}
+		//	Context?.RaiseEvent(ev);
+		//}
 
 		public IEnumerable<IEvent> GetEvents(PointInTime pointInTime)
 		{
@@ -36,7 +34,7 @@ namespace BusDriver.Core.Events.Time
 		{
 			Context = context;			
 			Identifier = identifier;
-			Context.Log(LogType.ProducerStartup, message: $"{this} starting up...", source: this);			
+			Context.Log(LogType.ProducerStartup, source: this);			
 		}
 
 		void AssertIsReady()

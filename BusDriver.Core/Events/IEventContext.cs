@@ -11,12 +11,14 @@ namespace BusDriver.Core.Events
 		void RegisterConsumer<TEvent>(IEventConsumer eventConsumer)
 			where TEvent : IEvent;
 
-		void HandleEvent(IEvent ev);
+		void RaiseEvent(IEvent ev, ILogSource source = null);
 
 		void Initialize();
 
 		void Log(LogType logType, string message = null, ILogSource source = null);
 
 		void LogError(Exception exception, string message = null, ILogSource source = null);
+
+		DateTime GetTimeNow();		
 	}
 }
