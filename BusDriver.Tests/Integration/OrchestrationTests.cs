@@ -135,16 +135,16 @@ namespace BusDriver.Tests.Integration
 					ev.Context.RaiseEvent(
 						new LogEvent(ev.Context)
 						{
-							Message = $"TimeEvent hit at: {ev.Time}",
+							Message = $"Log of: TimeEvent hit at: {ev.Time.Ticks}",
 							Time = ev.Context.GetTimeNow()
-						}, null
+						}, caller
 					)
 			};
 
 			// create a schedule that will only fire the Action when the time matches the event time
 			timeEventConsumer.Schedules.Add(new Schedule { Frequency = ScheduleFrequency.OncePerDay, TimeToRun = time });
 
-			var totalEventsSent = 500;
+			var totalEventsSent = 100;
 
 			// create a consumer that will see the evenets and write to the log
 			var logWriteConsumer = new LogEventConsumer();
@@ -165,11 +165,21 @@ namespace BusDriver.Tests.Integration
 
 			output.WriteLine($"result: {result.IsCompleted}, {result.LowestBreakIteration}");
 			context.AssertEventExists<TimeEvent>(totalEventsSent);
-			context.AssertEventExists<LogEvent>(totalEventsSent +1);
+			context.AssertEventExists<LogEvent>(totalEventsSent);
 
 			output.WriteLine(Environment.NewLine + "Warehouse Contents:");
-			logWriteConsumer.LogLines.ForEach(output.WriteLine);
-			logWriteConsumer.LogLines.Count().Should().Be(4);
+
+			Parallel.ForEach(logWriteConsumer.LogLines,
+				new ParallelOptions { MaxDegreeOfParallelism = 10 },
+				(line) =>
+				{
+					output.WriteLine(line);
+				}
+			);
+
+			//logWriteConsumer.LogLines.ForEach(output.WriteLine);
+
+			logWriteConsumer.LogLines.Count().Should().Be(totalEventsSent + 1);
 		}
 
 		//[Fact]
