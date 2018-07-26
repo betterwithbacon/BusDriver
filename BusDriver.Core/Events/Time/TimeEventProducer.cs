@@ -17,13 +17,6 @@ namespace BusDriver.Core.Events.Time
 		{
 		}
 
-		//public void Emit(IEvent ev)
-		//{
-		//	AssertIsReady();
-
-		//	Context?.RaiseEvent(ev);
-		//}
-
 		public IEnumerable<IEvent> GetEvents(PointInTime pointInTime)
 		{
 			// it's not obvious when this will be caused, so it should juts return a new time event

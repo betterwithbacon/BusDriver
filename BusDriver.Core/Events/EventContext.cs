@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using BusDriver.Core.Logging;
 
 namespace BusDriver.Core.Events
@@ -59,27 +60,29 @@ namespace BusDriver.Core.Events
 			// TODO: start the scheduler to poll for messages
 		}
 
-		public void RaiseEvent(IEvent ev, ILogSource logSource)
+		public async Task RaiseEvent(IEvent ev, ILogSource logSource)
 		{
 			// log the event was raised within the context
-			Log(LogType.EventSent, ev.ToString(), source: logSource);
+			await Log(LogType.EventSent, ev.ToString(), source: logSource);
 			
 			// then handle it
-			HandleEvent(ev);
+			await HandleEvent(ev);
 		}
 
-		void HandleEvent(IEvent ev)
+		async Task HandleEvent(IEvent ev)
 		{
 			if (ev == null)
 				return;
 
-			AllEvents.Add(ev);
+			await Task.Run(() => {
+			   AllEvents.Add(ev);
 
-			if (Consumers.TryGetValue(ev.GetType(), out var consumers))
-			{
-				foreach (var consumer in consumers)
-					consumer.HandleEvent(ev);
-			}
+			   if (Consumers.TryGetValue(ev.GetType(), out var consumers))
+			   {
+				   foreach (var consumer in consumers)
+					   consumer.HandleEvent(ev);
+			   }
+		   });
 		}
 
 		public IEnumerable<IEvent> GetAllReceivedEvents(PointInTime pointInTime = null)
@@ -87,9 +90,9 @@ namespace BusDriver.Core.Events
 			return AllEvents.Where(e => pointInTime == null || pointInTime <= e.Time).ToArray();
 		}
 
-		public void Log(LogType logType, string message = null, ILogSource source = null)
+		public async Task Log(LogType logType, string message = null, ILogSource source = null)
 		{
-			Log(new LogMessage() {
+			await Log(new LogMessage() {
 				LogType = logType,
 				Time = DateTime.Now,
 				Message = message,
@@ -97,9 +100,9 @@ namespace BusDriver.Core.Events
 			});
 		}
 
-		public void LogError(Exception exception, string message = null, ILogSource source = null)
+		public async Task LogError(Exception exception, string message = null, ILogSource source = null)
 		{
-			Log(new LogMessage() {
+			await Log(new LogMessage() {
 				LogType = LogType.Error,
 				Time = DateTime.Now,
 				Exception = exception,
@@ -108,10 +111,12 @@ namespace BusDriver.Core.Events
 			});
 		}
 
-		public void Log(LogMessage message)
+		public async Task Log(LogMessage message)
 		{
 			foreach (var logAction in SessionLogActions)
-				logAction(message);
+			{
+				await Task.Run(() => logAction(message));
+			}
 		}
 
 		public DateTime GetTimeNow()
