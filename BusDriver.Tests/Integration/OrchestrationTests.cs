@@ -25,7 +25,7 @@ namespace BusDriver.Tests.Integration
 
         [Fact]
 		[Trait("Category", "Unit")]
-		public void TimeEventShouldTriggerLogWriteEventWhichShouldThenWriteToLog()
+		public async Task TimeEventShouldTriggerLogWriteEventWhichShouldThenWriteToLog()
         {
 			// create the orchestrator
 			var context = new EventContext();
@@ -59,7 +59,7 @@ namespace BusDriver.Tests.Integration
 			// run and ensure the listeners are all responding
 			context.Initialize();
 
-			context.RaiseEvent(new TimeEvent(context, time), null);
+			await context.RaiseEvent(new TimeEvent(context, time), null);
 			context.AssertEventExists<TimeEvent>();
 			context.AssertEventExists<LogEvent>();
 
@@ -70,7 +70,7 @@ namespace BusDriver.Tests.Integration
 
 		[Fact]
 		[Trait("Category", "Unit")]
-		public void TimeEventShouldTriggerOneAndOnlyOneSchedule()
+		public async Task TimeEventShouldTriggerOneAndOnlyOneSchedule()
 		{
 			// create the orchestrator
 			var context = new EventContext();
@@ -105,9 +105,9 @@ namespace BusDriver.Tests.Integration
 			// run and ensure the listeners are all responding
 			context.Initialize();
 
-			context.RaiseEvent(new TimeEvent(context, time), null);
-			context.RaiseEvent(new TimeEvent(context, time.AddDays(-10)), null);
-			context.RaiseEvent(new TimeEvent(context, time.AddDays(10)), null);
+			await context.RaiseEvent(new TimeEvent(context, time), null);
+			await context.RaiseEvent(new TimeEvent(context, time.AddDays(-10)), null);
+			await context.RaiseEvent(new TimeEvent(context, time.AddDays(10)), null);
 
 			context.AssertEventExists<TimeEvent>(3);
 			context.AssertEventExists<LogEvent>(3);
@@ -119,7 +119,7 @@ namespace BusDriver.Tests.Integration
 
 		[Fact]
 		[Trait("Category", "Performance")]
-		public void PerformanceTest_HundredsOfTimingEventsFinishesInAFewSeconds()
+		public async Task PerformanceTest_HundredsOfTimingEventsFinishesInAFewSeconds()
 		{
 			// create the orchestrator
 			var context = new EventContext();
@@ -156,15 +156,11 @@ namespace BusDriver.Tests.Integration
 			// run and ensure the listeners are all responding
 			context.Initialize();
 
-			var result = Parallel.ForEach(Enumerable.Range(1, totalEventsSent),
-				new ParallelOptions { MaxDegreeOfParallelism = 10 },
-				(index) => {
-					output.WriteLine($"Test Event Emitted: {index}");
-					context.RaiseEvent(new TimeEvent(context, time.AddDays(-1 * index)), null);
-				}
-			);
+			var tasks = Enumerable.Range(1, totalEventsSent)
+				.Select(index => context.RaiseEvent(new TimeEvent(context, time.AddDays(-1 * index)), null));
 
-			output.WriteLine($"result: {result.IsCompleted}, {result.LowestBreakIteration}");
+			await Task.WhenAll(tasks);
+
 			context.AssertEventExists<TimeEvent>(totalEventsSent);
 			context.AssertEventExists<LogEvent>(totalEventsSent);
 
@@ -178,11 +174,8 @@ namespace BusDriver.Tests.Integration
 				}
 			);
 
-			//logWriteConsumer.LogLines.ForEach(output.WriteLine);
-
 			logWriteConsumer.LogLines.Count().Should().Be(totalEventsSent + 1);
 		}
-
 
 		[Fact]
 		[Trait("Category", "Performance")]
@@ -190,10 +183,7 @@ namespace BusDriver.Tests.Integration
 		{
 			// create the orchestrator
 			var context = new EventContext();
-			//context.AddLogAction(
-			//	(m) => output.WriteLine(m.ToString())
-			//);
-
+			
 			var time = DateTime.Parse("01/01/2018 10:00AM");
 
 			// create a consumer that when it receives a time event, that matches it's schedule, it will trigger a log write event
@@ -241,9 +231,6 @@ namespace BusDriver.Tests.Integration
 
 			var tasks = Enumerable.Range(1, totalEventsSent)
 				.Select(index => context.RaiseEvent(new TimeEvent(context, time.AddDays(-1 * index)), null)); 
-			//,new ParallelOptions { MaxDegreeOfParallelism = 5 },
-			//	async (index)  => await context.RaiseEvent(new TimeEvent(context, time.AddDays(-1 * index)), null)				
-			//);
 
 			await Task.WhenAll(tasks);
 
