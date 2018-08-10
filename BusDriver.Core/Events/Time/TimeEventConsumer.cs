@@ -14,7 +14,7 @@ namespace BusDriver.Core.Events.Time
 
 		public List<Schedule> Schedules { get; private set; }
 
-		public Action<IEventConsumer, IEvent> EventAction { get; set;}
+		public Action<DateTime> EventAction { get; set;}
 		
 		IEventContext Context { get; set; }
 
@@ -36,7 +36,7 @@ namespace BusDriver.Core.Events.Time
 			// evaluate all of the schedules to see if one is a hit, if so, then run the action configured for this consumer
 			if (Schedules.Any(s => s.IsMatch(timeEvent.Time)))
 			{
-				EventAction(this, ev);
+				EventAction(ev.Time);
 			}
 		}
 

@@ -2,43 +2,28 @@
 using BusDriver.Core.Logging;
 using System;
 using System.Collections.Generic;
+using System.Timers;
 
 namespace BusDriver.Core.Events.Time
 {
-    public class TimeEventProducer : IEventProducer
+    public class TimeEventProducer : BaseEventProducer
 	{
-		public string Identifier { get; private set; }
+		readonly Timer Timer = new Timer();
 
-		public string LogDescriptor => Identifier;
-
-		IEventContext Context { get; set; }
-
-		public TimeEventProducer()
+		public TimeEventProducer(double intervalInMilliseconds)
 		{
+			Timer.Interval = intervalInMilliseconds;
+			Timer.Elapsed += Timer_Elapsed;
 		}
 
-		public IEnumerable<IEvent> GetEvents(PointInTime pointInTime)
+		private void Timer_Elapsed(object sender, ElapsedEventArgs e)
 		{
-			// it's not obvious when this will be caused, so it should juts return a new time event
-			yield return new TimeEvent(Context, DateTime.UtcNow);
+			Context.RaiseEvent(new TimeEvent(Context, e.SignalTime), this);
 		}
 
-		public void Init(IEventContext context, string identifier)
+		public override void Start()
 		{
-			Context = context;			
-			Identifier = identifier;
-			Context.Log(LogType.ProducerStartup, source: this);			
-		}
-
-		void AssertIsReady()
-		{
-			if (Context == null)
-				throw new InvalidOperationException("Context is not set.");
-		}
-
-		public override string ToString()
-		{
-			return Identifier;
+			Timer.Start();
 		}
 	}
 }

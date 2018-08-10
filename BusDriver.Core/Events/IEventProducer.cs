@@ -7,8 +7,6 @@ namespace BusDriver.Core.Events
     {
 		new string Identifier { get; }
 
-		IEnumerable<IEvent> GetEvents(PointInTime pointInTime);
-
 		void Init(IEventContext context, string identifier);
 	}
 }

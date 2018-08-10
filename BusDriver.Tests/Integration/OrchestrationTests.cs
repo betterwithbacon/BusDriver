@@ -12,6 +12,7 @@ using BusDriver.Core.Logging;
 using Xunit.Abstractions;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Threading;
 
 namespace BusDriver.Tests.Integration
 {
@@ -34,18 +35,16 @@ namespace BusDriver.Tests.Integration
 			);
 
 			var time = DateTime.Parse("01/01/2018 10:00AM");
-			
+
 			// create a consumer that when it receives a time event, that matches it's schedule, it will trigger a log write event
-			var timeEventConsumer = new TimeEventConsumer()
+			var timeEventConsumer = new TimeEventConsumer();
+			timeEventConsumer.EventAction = (triggerTime) => context.RaiseEvent(
+				new LogEvent(context)
 				{
-					EventAction = (caller,ev) => 
-						ev.Context.RaiseEvent(
-							new LogEvent(ev.Context)
-							{
-								Message = $"TimeEvent hit at: {ev.Time}", Time = ev.Context.GetTimeNow()
-							}, null
-						)
-				};
+					Message = $"Log of: TimeEvent hit at: {triggerTime.Ticks}",
+					Time = context.GetTimeNow()
+				}, timeEventConsumer
+			);
 
 			// create a schedule that will only fire the Action when the time matches the event time
 			timeEventConsumer.Schedules.Add(new Schedule { Frequency = ScheduleFrequency.OncePerDay, TimeToRun = time });
@@ -59,18 +58,19 @@ namespace BusDriver.Tests.Integration
 			// run and ensure the listeners are all responding
 			context.Initialize();
 
-			await context.RaiseEvent(new TimeEvent(context, time), null);
+			context.RaiseEvent(new TimeEvent(context, time), null);
+			Thread.Sleep(500); // just wait a bit for the events to be handled
 			context.AssertEventExists<TimeEvent>();
 			context.AssertEventExists<LogEvent>();
 
 			output.WriteLine(Environment.NewLine + "Warehouse Contents");
 			logWriteConsumer.LogLines.ForEach(output.WriteLine);
-			logWriteConsumer.LogLines.Where(l => l.Contains(time.ToString())).Count().Should().Be(1);
+			logWriteConsumer.LogLines.Where(l => l.Contains(time.Ticks.ToString())).Count().Should().Be(1);
 		}
 
 		[Fact]
 		[Trait("Category", "Unit")]
-		public async Task TimeEventShouldTriggerOneAndOnlyOneSchedule()
+		public void TimeEventShouldTriggerOneAndOnlyOneSchedule()
 		{
 			// create the orchestrator
 			var context = new EventContext();
@@ -81,17 +81,14 @@ namespace BusDriver.Tests.Integration
 			var time = DateTime.Parse("01/01/2018 10:00AM");
 
 			// create a consumer that when it receives a time event, that matches it's schedule, it will trigger a log write event
-			var timeEventConsumer = new TimeEventConsumer()
-			{
-				EventAction = (caller, ev) =>
-					ev.Context.RaiseEvent(
-						new LogEvent(ev.Context)
-						{
-							Message = $"TimeEvent hit at: {ev.Time}",
-							Time = ev.Context.GetTimeNow()
-						}, null
-					)
-			};
+			var timeEventConsumer = new TimeEventConsumer();
+			timeEventConsumer.EventAction = (triggerTime) => context.RaiseEvent(
+				new LogEvent(context)
+				{
+					Message = $"Log of: TimeEvent hit at: {triggerTime.Ticks}",
+					Time = context.GetTimeNow()
+				}, timeEventConsumer
+			);
 
 			// create a schedule that will only fire the Action when the time matches the event time
 			timeEventConsumer.Schedules.Add(new Schedule { Frequency = ScheduleFrequency.OncePerDay, TimeToRun = time });
@@ -105,9 +102,11 @@ namespace BusDriver.Tests.Integration
 			// run and ensure the listeners are all responding
 			context.Initialize();
 
-			await context.RaiseEvent(new TimeEvent(context, time), null);
-			await context.RaiseEvent(new TimeEvent(context, time.AddDays(-10)), null);
-			await context.RaiseEvent(new TimeEvent(context, time.AddDays(10)), null);
+			context.RaiseEvent(new TimeEvent(context, time), null);
+			context.RaiseEvent(new TimeEvent(context, time.AddDays(-10)), null);
+			context.RaiseEvent(new TimeEvent(context, time.AddDays(10)), null);
+
+			Thread.Sleep(500); // just wait a bit for the events to be handled
 
 			context.AssertEventExists<TimeEvent>(3);
 			context.AssertEventExists<LogEvent>(3);
@@ -115,6 +114,33 @@ namespace BusDriver.Tests.Integration
 			output.WriteLine(Environment.NewLine + "Warehouse Contents:");
 			logWriteConsumer.LogLines.ForEach(output.WriteLine);
 			logWriteConsumer.LogLines.Count().Should().Be(4);
+		}
+
+		[Fact]
+		[Trait("Category", "Unit")]
+		public void Context_AddSchedule_ShouldAddCauseEventToBeTriggeredFromSchedule()
+		{
+			bool reached = false;
+			// create the orchestrator
+			var context = new EventContext(defaultScheduleTimeIntervalInMilliseconds:50);
+			context.AddLogAction(
+				(m) => output.WriteLine(m.ToString())
+			);
+
+			var time = DateTime.Parse("01/01/2018 10:05AM");
+
+			// create a schedule that will only fire the Action when the time matches the event time
+			context.AddSchedule(new Schedule { Frequency = ScheduleFrequency.OncePerDay, TimeToRun = time },
+				(hitTime) => { output.WriteLine($"EVENT HIT: {hitTime}"); reached = true; } );
+
+			// run and ensure the listeners are all responding
+			context.Initialize();
+
+			Thread.Sleep(50); // just wait a bit for the events to be handled
+
+			// a few time e vents may be release
+			context.AssertEventExists<TimeEvent>();
+			reached.Should().BeTrue();
 		}
 
 		[Fact]
@@ -130,18 +156,15 @@ namespace BusDriver.Tests.Integration
 			var time = DateTime.Parse("01/01/2018 10:00AM");
 
 			// create a consumer that when it receives a time event, that matches it's schedule, it will trigger a log write event
-			var timeEventConsumer = new TimeEventConsumer()
-			{
-				EventAction = (caller, ev) =>
-					ev.Context.RaiseEvent(
-						new LogEvent(ev.Context)
-						{
-							Message = $"Log of: TimeEvent hit at: {ev.Time.Ticks}",
-							Time = ev.Context.GetTimeNow()
-						}, caller
-					)
-			};
-
+			var timeEventConsumer = new TimeEventConsumer();
+			timeEventConsumer.EventAction = (triggerTime) => context.RaiseEvent(
+				new LogEvent(context)
+				{
+					Message = $"Log of: TimeEvent hit at: {triggerTime.Ticks}",
+					Time = context.GetTimeNow()
+				}, timeEventConsumer
+			);
+			
 			// create a schedule that will only fire the Action when the time matches the event time
 			timeEventConsumer.Schedules.Add(new Schedule { Frequency = ScheduleFrequency.OncePerDay, TimeToRun = time });
 
@@ -157,7 +180,7 @@ namespace BusDriver.Tests.Integration
 			context.Initialize();
 
 			var tasks = Enumerable.Range(1, totalEventsSent)
-				.Select(index => context.RaiseEvent(new TimeEvent(context, time.AddDays(-1 * index)), null));
+				.Select(index => Task.Run( () => context.RaiseEvent(new TimeEvent(context, time.AddDays(-1 * index)), null)));
 
 			await Task.WhenAll(tasks);
 
@@ -187,17 +210,14 @@ namespace BusDriver.Tests.Integration
 			var time = DateTime.Parse("01/01/2018 10:00AM");
 
 			// create a consumer that when it receives a time event, that matches it's schedule, it will trigger a log write event
-			var timeEventConsumer = new TimeEventConsumer()
-			{
-				EventAction = (caller, ev) =>
-					ev.Context.RaiseEvent(
-						new LogEvent(ev.Context)
-						{
-							Message = $"Log of: TimeEvent hit at: {ev.Time.Ticks}",
-							Time = ev.Context.GetTimeNow()
-						}, caller
-					)
-			};
+			var timeEventConsumer = new TimeEventConsumer();
+			timeEventConsumer.EventAction = (triggerTime) => context.RaiseEvent(
+				new LogEvent(context)
+				{
+					Message = $"Log of: TimeEvent hit at: {triggerTime.Ticks}",
+					Time = context.GetTimeNow()
+				}, timeEventConsumer
+			);
 
 			// create a schedule that will only fire the Action when the time matches the event time
 			timeEventConsumer.Schedules.Add(new Schedule { Frequency = ScheduleFrequency.OncePerDay, TimeToRun = time });
@@ -230,7 +250,7 @@ namespace BusDriver.Tests.Integration
 			stopwatch.Restart();
 
 			var tasks = Enumerable.Range(1, totalEventsSent)
-				.Select(index => context.RaiseEvent(new TimeEvent(context, time.AddDays(-1 * index)), null)); 
+				.Select(index => Task.Run(() => context.RaiseEvent(new TimeEvent(context, time.AddDays(-1 * index)), null))); 
 
 			await Task.WhenAll(tasks);
 

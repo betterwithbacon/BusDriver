@@ -3,7 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using BusDriver.Core.Events.Time;
 using BusDriver.Core.Logging;
+using BusDriver.Core.Scheduling;
 
 namespace BusDriver.Core.Events
 {
@@ -14,9 +16,11 @@ namespace BusDriver.Core.Events
 		readonly ConcurrentBag<IEvent> AllEvents = new ConcurrentBag<IEvent>();
 		public readonly ConcurrentBag<LogMessage> SessionLogMessages = new ConcurrentBag<LogMessage>();
 		readonly List<Action<LogMessage>> SessionLogActions = new List<Action<LogMessage>>();
+		TimeEventProducer GlobalClock { get; set; } // raise an event every minute, like a clock (a not very good clock)
 
-		public EventContext()
+		public EventContext(double defaultScheduleTimeIntervalInMilliseconds = 60 * 1000)
 		{
+			GlobalClock = new TimeEventProducer(defaultScheduleTimeIntervalInMilliseconds);
 		}
 
 		public void AddLogAction(Action<LogMessage> messageAction)
@@ -57,32 +61,33 @@ namespace BusDriver.Core.Events
 			// the default action is to write it to the internal session messages store			
 			AddLogAction((m) => SessionLogMessages.Add(m));
 
-			// TODO: start the scheduler to poll for messages
+			// start the global clock, it'll emit events based on time.				
+			RegisterProducer(GlobalClock);
 		}
 
-		public async Task RaiseEvent(IEvent ev, ILogSource logSource)
+		public void RaiseEvent(IEvent ev, ILogSource logSource)
 		{
 			// log the event was raised within the context
-			await Log(LogType.EventSent, ev.ToString(), source: logSource);
+			Log(LogType.EventSent, ev.ToString(), source: logSource);
 			
-			// then handle it
-			await HandleEvent(ev);
+			// then handle it (F&F)
+			HandleEvent(ev); 
 		}
 
-		async Task HandleEvent(IEvent ev)
+		void HandleEvent(IEvent ev)
 		{
 			if (ev == null)
 				return;
 
-			await Task.Run(() => {
-			   AllEvents.Add(ev);
+			_ = Task.Run(() => {
+				   AllEvents.Add(ev);
 
-			   if (Consumers.TryGetValue(ev.GetType(), out var consumers))
-			   {
-				   foreach (var consumer in consumers)
-					   consumer.HandleEvent(ev);
-			   }
-		   });
+				   if (Consumers.TryGetValue(ev.GetType(), out var consumers))
+				   {
+					   foreach (var consumer in consumers)
+						   consumer.HandleEvent(ev);
+				   }
+			   });
 		}
 
 		public IEnumerable<IEvent> GetAllReceivedEvents(PointInTime pointInTime = null)
@@ -90,9 +95,9 @@ namespace BusDriver.Core.Events
 			return AllEvents.Where(e => pointInTime == null || pointInTime <= e.Time).ToArray();
 		}
 
-		public async Task Log(LogType logType, string message = null, ILogSource source = null)
+		public void Log(LogType logType, string message = null, ILogSource source = null)
 		{
-			await Log(new LogMessage() {
+			Log(new LogMessage() {
 				LogType = logType,
 				Time = DateTime.Now,
 				Message = message,
@@ -100,9 +105,9 @@ namespace BusDriver.Core.Events
 			});
 		}
 
-		public async Task LogError(Exception exception, string message = null, ILogSource source = null)
+		public void LogError(Exception exception, string message = null, ILogSource source = null)
 		{
-			await Log(new LogMessage() {
+			Log(new LogMessage() {
 				LogType = LogType.Error,
 				Time = DateTime.Now,
 				Exception = exception,
@@ -111,17 +116,31 @@ namespace BusDriver.Core.Events
 			});
 		}
 
-		public async Task Log(LogMessage message)
+		public void Log(LogMessage message)
 		{
 			foreach (var logAction in SessionLogActions)
 			{
-				await Task.Run(() => logAction(message));
+				_= Task.Run(() => logAction(message));
 			}
 		}
 
 		public DateTime GetTimeNow()
 		{
 			return DateTime.Now;
+		}
+
+		public void AddSchedule(Schedule schedule, Action<DateTime> actionToPerform)
+		{
+			var consumer = new TimeEventConsumer();
+			consumer.Schedules.Add(schedule);
+			consumer.EventAction = (time) => actionToPerform(time);
+			RegisterConsumer<TimeEvent>(consumer);
+		}
+
+		public void CreateSchedule<TAction>()
+			where TAction : IScheduledAction
+		{
+			// a schedule embedded in a type? is that practical/valuable? (daily backup?)
 		}
 	}
 }
