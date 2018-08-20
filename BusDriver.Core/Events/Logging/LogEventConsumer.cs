@@ -28,15 +28,20 @@ namespace BusDriver.Core.Events.Logging
 			Warehouse.Append(LOG_NAME, this, new[] { $"[{logEvent.Time}] {logEvent.Message}" }, LoadingDockPolicies);
 		}
 
-		public void Init(IEventContext context, string identifier)
+		public void Init(IEventContext context)
 		{
 			Context = context;
-			Identifier = identifier;
+			Identifier = EventContext.GenerateSessionIdentifier(this);
 			Context.Log(LogType.ConsumerStartup, source: this);
 			Warehouse = new Warehouse();
 			
 			// init the session log
 			Warehouse.Store(LOG_NAME, this, new[] { $"[{context.GetTimeNow()}] Log Starting" }, LoadingDockPolicies);
+		}
+
+		public override string ToString()
+		{
+			return "LogEventWriter";
 		}
 	}
 }

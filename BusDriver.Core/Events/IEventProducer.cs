@@ -5,8 +5,8 @@ namespace BusDriver.Core.Events
 {
     public interface IEventProducer : ILogSource
     {
-		new string Identifier { get; }
+		void Init(IEventContext context);
 
-		void Init(IEventContext context, string identifier);
+		void Start();
 	}
 }

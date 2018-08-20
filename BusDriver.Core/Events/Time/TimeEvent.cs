@@ -17,7 +17,7 @@ namespace BusDriver.Core.Events.Time
 
 		public override string ToString()
 		{
-			return $"Time: {Time}";
+			return $"Time: {Time.ToString("hh:mm:ss:fff")}";
 		}
 	}
 }

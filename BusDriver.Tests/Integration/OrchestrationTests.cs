@@ -13,6 +13,7 @@ using Xunit.Abstractions;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Threading;
+using BusDriver.Core.Queueing;
 
 namespace BusDriver.Tests.Integration
 {
@@ -24,9 +25,32 @@ namespace BusDriver.Tests.Integration
 			this.output = output;
 		}
 
-        [Fact]
+		[Fact]
 		[Trait("Category", "Unit")]
-		public async Task TimeEventShouldTriggerLogWriteEventWhichShouldThenWriteToLog()
+		public void QueueEventProducerShouldRetrieveEventAndPutIntoContext()
+		{
+			var context = new EventContext();
+			context.AddLogAction(
+				(m) => output.WriteLine(m.ToString())
+			);
+
+			var testEvent = Substitute.For<IEvent>();
+
+			// create the queue to hold the test events
+			var memQueue = new MemoryEventQueue();
+			var timeToWait = 10; // make it very short to no quickly
+
+			// the producer will read from the queue, and emit Events into the context.
+			var producer = new QueueEventProducer(memQueue, delayInMilliseconds: timeToWait);
+			producer.Init(context);
+
+			// look for non-time events
+			context.AssertEventExists<IEvent>(additionalFilter: (ev) => !ev.GetType().IsAssignableFrom(typeof(TimeEvent))); ;
+		}
+
+		[Fact]
+		[Trait("Category", "Unit")]
+		public void TimeEventShouldTriggerLogWriteEventWhichShouldThenWriteToLog()
         {
 			// create the orchestrator
 			var context = new EventContext();
@@ -34,6 +58,7 @@ namespace BusDriver.Tests.Integration
 				(m) => output.WriteLine(m.ToString())
 			);
 
+			
 			var time = DateTime.Parse("01/01/2018 10:00AM");
 
 			// create a consumer that when it receives a time event, that matches it's schedule, it will trigger a log write event
@@ -121,16 +146,17 @@ namespace BusDriver.Tests.Integration
 		public void Context_AddSchedule_ShouldAddCauseEventToBeTriggeredFromSchedule()
 		{
 			bool reached = false;
+
 			// create the orchestrator
-			var context = new EventContext(defaultScheduleTimeIntervalInMilliseconds:50);
+			var context = new EventContext(defaultScheduleTimeIntervalInMilliseconds:25);
 			context.AddLogAction(
 				(m) => output.WriteLine(m.ToString())
 			);
 
-			var time = DateTime.Parse("01/01/2018 10:05AM");
+			var timeSecond = DateTime.Now.Second;
 
 			// create a schedule that will only fire the Action when the time matches the event time
-			context.AddSchedule(new Schedule { Frequency = ScheduleFrequency.OncePerDay, TimeToRun = time },
+			context.AddScheduledAction(new Schedule { Frequency = ScheduleFrequency.OnceEveryUnitsMinute, FrequencyUnit = timeSecond },
 				(hitTime) => { output.WriteLine($"EVENT HIT: {hitTime}"); reached = true; } );
 
 			// run and ensure the listeners are all responding
@@ -139,7 +165,7 @@ namespace BusDriver.Tests.Integration
 			Thread.Sleep(50); // just wait a bit for the events to be handled
 
 			// a few time e vents may be release
-			context.AssertEventExists<TimeEvent>();
+			context.AssertEventExists<TimeEvent>(atLeast: 1);
 			reached.Should().BeTrue();
 		}
 
@@ -267,10 +293,15 @@ namespace BusDriver.Tests.Integration
 
 	public static class SchedulerTests
 	{
-		public static void AssertEventExists<TEvent>(this EventContext context, int count = 1, Func<IEvent, bool> additionalFilter = null)
+		public static void AssertEventExists<TEvent>(this EventContext context, int count = 1, Func<IEvent, bool> additionalFilter = null, int? atLeast = null)
 			where TEvent : IEvent
 		{
-			context.GetAllReceivedEvents().Where(e => e.GetType() == typeof(TEvent) && (additionalFilter?.Invoke(e) ?? true)).Count().Should().Be(count);
+			var recCount = context.GetAllReceivedEvents().Where(e => e.GetType() == typeof(TEvent) && (additionalFilter?.Invoke(e) ?? true)).Count();
+
+			if (atLeast.HasValue)
+				recCount.Should().BeGreaterOrEqualTo(atLeast.Value);
+			else
+				recCount.Should().Be(count);
 		}
 	}
 }

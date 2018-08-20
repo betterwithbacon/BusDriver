@@ -8,6 +8,7 @@ namespace BusDriver.Core.Events
 	public interface IEventContext
 	{
 		void Initialize();
+		
 
 		void RegisterProducer(IEventProducer eventSource);
 
@@ -15,6 +16,7 @@ namespace BusDriver.Core.Events
 			where TEvent : IEvent;
 
 		void RaiseEvent(IEvent ev, ILogSource source = null);
+
 
 		void Log(LogType logType, string message = null, ILogSource source = null);
 

@@ -40,10 +40,10 @@ namespace BusDriver.Core.Events.Time
 			}
 		}
 
-		public void Init(IEventContext context, string identifier)
+		public void Init(IEventContext context)
 		{
 			Context = context;
-			Identifier = identifier;
+			Identifier = EventContext.GenerateSessionIdentifier(this);
 			Context.Log(LogType.ConsumerStartup, source: this);
 		}
 	}

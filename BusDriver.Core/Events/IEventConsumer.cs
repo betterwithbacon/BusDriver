@@ -12,9 +12,7 @@ namespace BusDriver.Core.Events
 
 		void HandleEvent(IEvent ev);
 
-		string Identifier { get; }
-		
-		void Init(IEventContext context, string identifier);
+		void Init(IEventContext context);
 	}
 
 	public static class IEventExtensions

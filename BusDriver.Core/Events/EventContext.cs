@@ -3,8 +3,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Timers;
 using BusDriver.Core.Events.Time;
 using BusDriver.Core.Logging;
+using BusDriver.Core.Queueing;
 using BusDriver.Core.Scheduling;
 
 namespace BusDriver.Core.Events
@@ -13,47 +15,16 @@ namespace BusDriver.Core.Events
 	{
 		readonly ConcurrentBag<IEventProducer> Producers = new ConcurrentBag<IEventProducer>();
 		readonly ConcurrentDictionary<Type, IList<IEventConsumer>>  Consumers = new ConcurrentDictionary<Type, IList<IEventConsumer>>();
-		readonly ConcurrentBag<IEvent> AllEvents = new ConcurrentBag<IEvent>();
+		readonly ConcurrentBag<IEvent> AllReceivedEvents = new ConcurrentBag<IEvent>();
 		public readonly ConcurrentBag<LogMessage> SessionLogMessages = new ConcurrentBag<LogMessage>();
 		readonly List<Action<LogMessage>> SessionLogActions = new List<Action<LogMessage>>();
 		TimeEventProducer GlobalClock { get; set; } // raise an event every minute, like a clock (a not very good clock)
-
-		public EventContext(double defaultScheduleTimeIntervalInMilliseconds = 60 * 1000)
+		public IWorkQueue<IEvent> EventQueue { get; }
+		
+		public EventContext(IWorkQueue<IEvent> eventQueue = null, double defaultScheduleTimeIntervalInMilliseconds = 60 * 1000)
 		{
+			EventQueue = eventQueue ?? new MemoryEventQueue();
 			GlobalClock = new TimeEventProducer(defaultScheduleTimeIntervalInMilliseconds);
-		}
-
-		public void AddLogAction(Action<LogMessage> messageAction)
-		{
-			SessionLogActions.Add(messageAction);
-		}
-
-		public void RegisterProducer(IEventProducer eventProducer)
-		{
-			// add it
-			Producers.Add(eventProducer);
-			
-			// and register this as the context with the producer
-			eventProducer.Init(this, $"{eventProducer.GetType().Name}-{GetNewPseudoRandomString()}");
-
-			Log(LogType.ProducerRegistered, source: eventProducer as ILogSource);
-		}
-
-		static string GetNewPseudoRandomString()
-		{
-			var rawId = Guid.NewGuid().ToString();
-			return rawId.Substring(rawId.LastIndexOf('-') + 1);
-		}
-
-		public void RegisterConsumer<TEvent>(IEventConsumer eventConsumer)
-			where TEvent : IEvent
-		{
-
-			Consumers.GetOrAdd(typeof(TEvent), new List<IEventConsumer> { eventConsumer }); //?.Add(eventConsumer);
-
-			eventConsumer.Init(this, $"{eventConsumer.GetType().Name}-{GetNewPseudoRandomString()}");
-
-			Log(LogType.ConsumerRegistered, source: eventConsumer as ILogSource);
 		}
 
 		public void Initialize()
@@ -63,15 +34,48 @@ namespace BusDriver.Core.Events
 
 			// start the global clock, it'll emit events based on time.				
 			RegisterProducer(GlobalClock);
+
+			// configure a producer, that will periodically read from the 
+			RegisterProducer(new QueueEventProducer(EventQueue, 1000));
+		}
+
+		#region Processing
+		public void Do(IEnumerable<Action> actions)
+		{
+			
+		}
+		#endregion
+
+		#region Events
+		public void RegisterProducer(IEventProducer eventProducer)
+		{
+			// add it
+			Producers.Add(eventProducer);
+
+			// and register this as the context with the producer
+			eventProducer.Init(this);
+
+			Log(LogType.ProducerRegistered, source: eventProducer as ILogSource);
+		}
+
+		public void RegisterConsumer<TEvent>(IEventConsumer eventConsumer)
+			where TEvent : IEvent
+		{
+			Consumers.GetOrAdd(typeof(TEvent), new List<IEventConsumer> { eventConsumer }); //?.Add(eventConsumer);
+
+			eventConsumer.Init(this);
+
+			Log(LogType.ConsumerRegistered, source: eventConsumer as ILogSource);
 		}
 
 		public void RaiseEvent(IEvent ev, ILogSource logSource)
 		{
 			// log the event was raised within the context
 			Log(LogType.EventSent, ev.ToString(), source: logSource);
-			
-			// then handle it (F&F)
-			HandleEvent(ev); 
+
+			// ALL work should be enqueued for later execution. this means, that every event received, 
+			// will be heard by both the local context, and potentially propagated to other contexts
+			EventQueue.Enqueue(ev);
 		}
 
 		void HandleEvent(IEvent ev)
@@ -79,20 +83,29 @@ namespace BusDriver.Core.Events
 			if (ev == null)
 				return;
 
-			_ = Task.Run(() => {
-				   AllEvents.Add(ev);
+			// handle tasks in a separate thread
+			_ = Task.Run(() =>
+			{
+				AllReceivedEvents.Add(ev);
 
-				   if (Consumers.TryGetValue(ev.GetType(), out var consumers))
-				   {
-					   foreach (var consumer in consumers)
-						   consumer.HandleEvent(ev);
-				   }
-			   });
+				if (Consumers.TryGetValue(ev.GetType(), out var consumers))
+				{
+					foreach (var consumer in consumers)
+						consumer.HandleEvent(ev);
+				}
+			});
 		}
 
 		public IEnumerable<IEvent> GetAllReceivedEvents(PointInTime pointInTime = null)
 		{
-			return AllEvents.Where(e => pointInTime == null || pointInTime <= e.Time).ToArray();
+			return AllReceivedEvents.Where(e => pointInTime == null || pointInTime <= e.Time).ToArray();
+		}
+		#endregion
+		
+		#region Logging
+		public void AddLogAction(Action<LogMessage> messageAction)
+		{
+			SessionLogActions.Add(messageAction);
 		}
 
 		public void Log(LogType logType, string message = null, ILogSource source = null)
@@ -123,13 +136,24 @@ namespace BusDriver.Core.Events
 				_= Task.Run(() => logAction(message));
 			}
 		}
-
+		#endregion
+				
+		#region Utilities
+		public static string GenerateSessionIdentifier(object requestor)
+		{
+			var rawId = Guid.NewGuid().ToString();
+			//return rawId.Substring(rawId.LastIndexOf('-') + 1);
+			return $"{requestor.GetType().Name}-{rawId.Substring(rawId.LastIndexOf('-') + 1)}";
+		}
+		
 		public DateTime GetTimeNow()
 		{
 			return DateTime.Now;
 		}
+		#endregion
 
-		public void AddSchedule(Schedule schedule, Action<DateTime> actionToPerform)
+		#region Scheduling
+		public void AddScheduledAction(Schedule schedule, Action<DateTime> actionToPerform)
 		{
 			var consumer = new TimeEventConsumer();
 			consumer.Schedules.Add(schedule);
@@ -142,5 +166,6 @@ namespace BusDriver.Core.Events
 		{
 			// a schedule embedded in a type? is that practical/valuable? (daily backup?)
 		}
+		#endregion
 	}
 }

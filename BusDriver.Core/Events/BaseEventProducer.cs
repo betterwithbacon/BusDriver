@@ -11,10 +11,10 @@ namespace BusDriver.Core.Events
 
 		protected IEventContext Context { get; private set; }
 
-		public void Init(IEventContext context, string identifier)
+		public void Init(IEventContext context)
 		{
 			Context = context;
-			Identifier = identifier;
+			Identifier = EventContext.GenerateSessionIdentifier(this);
 			Context.Log(LogType.ProducerStartup, source: this);
 
 			Start();
