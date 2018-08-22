@@ -1,5 +1,6 @@
 ﻿using BusDriver.Core.Events;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 
@@ -8,17 +9,20 @@ namespace BusDriver.Core.Queueing
 	// a simple in-memory queue for events.
 	public class MemoryEventQueue : IWorkQueue<IEvent>
 	{
-		private Queue<IEvent> Queue { get; }
+		private ConcurrentQueue<IEvent> Queue { get; }
 
-		public MemoryEventQueue(Queue<IEvent> eventQueue = null)
+		public MemoryEventQueue(ConcurrentQueue<IEvent> eventQueue = null)
 		{
-			Queue = eventQueue ?? new Queue<IEvent>();
+			Queue = eventQueue ?? new ConcurrentQueue<IEvent>();
 		}
 		
 		public IEnumerable<IEvent> Dequeue(int count)
 		{
-			for(int i = 0; i < count; i++)
-				yield return Queue.Dequeue();
+			for (int i = 0; i < count && Queue.Count > 0; i++)
+				if (Queue.TryDequeue(out var result))
+					yield return result;
+				else
+					yield return null;
 		}
 
 		public void Enqueue(IEvent ev)

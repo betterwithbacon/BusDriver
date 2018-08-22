@@ -29,23 +29,25 @@ namespace BusDriver.Tests.Integration
 		[Trait("Category", "Unit")]
 		public void QueueEventProducerShouldRetrieveEventAndPutIntoContext()
 		{
-			var context = new EventContext();
-			context.AddLogAction(
-				(m) => output.WriteLine(m.ToString())
+			var memQueue = new MemoryEventQueue();
+			var context = new EventContext(eventQueue: memQueue);
+				context.AddLogAction(
+					(m) => output.WriteLine(m.ToString())
 			);
 
-			var testEvent = Substitute.For<IEvent>();
+			context.Initialize();
 
-			// create the queue to hold the test events
-			var memQueue = new MemoryEventQueue();
-			var timeToWait = 10; // make it very short to no quickly
+			var testEvent = new TestEvent(context);
 
-			// the producer will read from the queue, and emit Events into the context.
-			var producer = new QueueEventProducer(memQueue, delayInMilliseconds: timeToWait);
-			producer.Init(context);
+			// raise the event
+			//context.RaiseEvent(testEvent, null);
+			memQueue.Enqueue(testEvent);
+
+			// give the system enough time to react to the event showing up
+			Thread.Sleep(200);
 
 			// look for non-time events
-			context.AssertEventExists<IEvent>(additionalFilter: (ev) => !ev.GetType().IsAssignableFrom(typeof(TimeEvent))); ;
+			context.AssertEventExists<TestEvent>();
 		}
 
 		[Fact]
@@ -57,8 +59,7 @@ namespace BusDriver.Tests.Integration
 			context.AddLogAction(
 				(m) => output.WriteLine(m.ToString())
 			);
-
-			
+						
 			var time = DateTime.Parse("01/01/2018 10:00AM");
 
 			// create a consumer that when it receives a time event, that matches it's schedule, it will trigger a log write event
@@ -288,6 +289,19 @@ namespace BusDriver.Tests.Integration
 
 			// it should be able to process a hundred events in under a second
 			stopwatch.ElapsedMilliseconds.Should().BeLessThan(totalEventsSent * (long)2); // each event should never take longer trhan 1.5milliseconds to run
+		}
+
+		private class TestEvent : IEvent
+		{
+			public TestEvent(IEventContext context, DateTime? time = null)
+			{
+				Context = context;
+				Time = time ?? DateTime.Now;
+			}
+
+			public IEventContext Context { get; }
+
+			public DateTime Time { get; private set; }
 		}
 	}
 

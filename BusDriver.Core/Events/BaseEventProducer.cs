@@ -32,5 +32,10 @@ namespace BusDriver.Core.Events
 		{
 			return Identifier;
 		}
+
+		public string GetContextId()
+		{
+			return Context.Id;
+		}
 	}
 }

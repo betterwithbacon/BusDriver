@@ -8,5 +8,7 @@ namespace BusDriver.Core.Events
 		void Init(IEventContext context);
 
 		void Start();
+
+		string GetContextId();
 	}
 }

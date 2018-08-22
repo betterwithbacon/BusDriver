@@ -2,8 +2,9 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Timers;
+//using System.Timers;
 using BusDriver.Core.Events.Time;
 using BusDriver.Core.Logging;
 using BusDriver.Core.Queueing;
@@ -20,7 +21,10 @@ namespace BusDriver.Core.Events
 		readonly List<Action<LogMessage>> SessionLogActions = new List<Action<LogMessage>>();
 		TimeEventProducer GlobalClock { get; set; } // raise an event every minute, like a clock (a not very good clock)
 		public IWorkQueue<IEvent> EventQueue { get; }
-		
+		bool IsInited { get; set; }
+		IWorkQueue<IEvent> WorkQueue { get; set; }
+		public string Id { get; private set; }
+
 		public EventContext(IWorkQueue<IEvent> eventQueue = null, double defaultScheduleTimeIntervalInMilliseconds = 60 * 1000)
 		{
 			EventQueue = eventQueue ?? new MemoryEventQueue();
@@ -29,14 +33,21 @@ namespace BusDriver.Core.Events
 
 		public void Initialize()
 		{
-			// the default action is to write it to the internal session messages store			
-			AddLogAction((m) => SessionLogMessages.Add(m));
+			if (!IsInited)
+			{
+				Id = GenerateSessionIdentifier(this);
 
-			// start the global clock, it'll emit events based on time.				
-			RegisterProducer(GlobalClock);
+				// the default action is to write it to the internal session messages store			
+				AddLogAction((m) => SessionLogMessages.Add(m));
 
-			// configure a producer, that will periodically read from the 
-			RegisterProducer(new QueueEventProducer(EventQueue, 1000));
+				// start the global clock, it'll emit events based on time.				
+				RegisterProducer(GlobalClock);
+
+				// configure a producer, that will periodically read from an event stream, and emit those events within the context.
+				RegisterProducer(new QueueEventProducer(EventQueue, 1000));
+
+				IsInited = true;
+			}
 		}
 
 		#region Processing
@@ -47,6 +58,32 @@ namespace BusDriver.Core.Events
 		#endregion
 
 		#region Events
+		Timer Timer;
+		
+		void PollForEvents()
+		{
+			// kick off the timer
+			// TODO: the creation of the handler should be somewhere else probably
+			Timer = new Timer(
+				(context) => {
+					//var eventContext = context as EventContext;
+					try
+					{
+						var ev = WorkQueue.Dequeue(1).FirstOrDefault();
+						if (ev != null)
+						{
+							HandleEvent(ev);
+						}
+					}
+					catch (Exception e)
+					{
+						LogError(e);
+						throw;
+					}
+				}, this, 100, 1000
+				);
+		}
+
 		public void RegisterProducer(IEventProducer eventProducer)
 		{
 			// add it
@@ -55,7 +92,19 @@ namespace BusDriver.Core.Events
 			// and register this as the context with the producer
 			eventProducer.Init(this);
 
-			Log(LogType.ProducerRegistered, source: eventProducer as ILogSource);
+			Log(LogType.ProducerRegistered, source: eventProducer);
+
+			AssertProducerIsReady(eventProducer);
+
+			// after registered, go ahead and start the producer.
+			eventProducer.Start();
+		}
+
+		public void AssertProducerIsReady(IEventProducer producer)
+		{
+			// if it doesn't know the context Id, then it's broken			
+			if (producer.GetContextId() != this.Id)
+				throw new ApplicationException($"Producer: {producer} is not ready.");
 		}
 
 		public void RegisterConsumer<TEvent>(IEventConsumer eventConsumer)
@@ -68,17 +117,26 @@ namespace BusDriver.Core.Events
 			Log(LogType.ConsumerRegistered, source: eventConsumer as ILogSource);
 		}
 
-		public void RaiseEvent(IEvent ev, ILogSource logSource)
+		public void RaiseEvent(IEvent ev, ILogSource logSource = null)
 		{
+			AssertIsInited();
 			// log the event was raised within the context
 			Log(LogType.EventSent, ev.ToString(), source: logSource);
 
 			// ALL work should be enqueued for later execution. this means, that every event received, 
 			// will be heard by both the local context, and potentially propagated to other contexts
-			EventQueue.Enqueue(ev);
+			//EventQueue.Enqueue(ev);
+
+			HandleEvent(ev);
 		}
 
-		void HandleEvent(IEvent ev)
+		private void AssertIsInited()
+		{
+			if (!IsInited)
+				throw new InvalidOperationException("The context is not initialized.");
+		}
+
+		private void HandleEvent(IEvent ev)
 		{
 			if (ev == null)
 				return;

@@ -7,8 +7,9 @@ namespace BusDriver.Core.Events
 {
 	public interface IEventContext
 	{
-		void Initialize();
-		
+		string Id { get; }
+
+		void Initialize();		
 
 		void RegisterProducer(IEventProducer eventSource);
 
