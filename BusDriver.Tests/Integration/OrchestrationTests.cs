@@ -18,11 +18,20 @@ using BusDriver.Core.Queueing;
 namespace BusDriver.Tests.Integration
 {
     public class OrchestrationTests
-    {
+    {	
 		private readonly ITestOutputHelper output;
 		public OrchestrationTests(ITestOutputHelper output)
 		{
 			this.output = output;
+		}
+
+		private EventContext GivenAContext()
+		{
+			var context = new EventContext();
+			context.AddLogAction(
+				(m) => output.WriteLine(m.ToString())
+			);
+			return context;
 		}
 
 		[Fact]

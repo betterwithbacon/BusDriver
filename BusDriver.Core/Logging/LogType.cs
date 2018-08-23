@@ -20,6 +20,8 @@ namespace BusDriver.Core.Logging
 		ContextStartup,
 		ContextShutdown,
 		ContextJoin,
-		Error
+
+		Error,
+		Info
 	}
 }

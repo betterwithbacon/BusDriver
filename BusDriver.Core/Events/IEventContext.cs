@@ -1,4 +1,5 @@
 ﻿using BusDriver.Core.Logging;
+using BusDriver.Core.Scheduling;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -9,7 +10,11 @@ namespace BusDriver.Core.Events
 	{
 		string Id { get; }
 
-		void Initialize();		
+		void Initialize();
+
+		void Do(IEnumerable<Action<IEventContext>> actions);
+
+		void AddScheduledAction(Schedule schedule, Action<DateTime> taskToPerform);
 
 		void RegisterProducer(IEventProducer eventSource);
 

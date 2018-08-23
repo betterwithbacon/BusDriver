@@ -51,9 +51,15 @@ namespace BusDriver.Core.Events
 		}
 
 		#region Processing
-		public void Do(IEnumerable<Action> actions)
+		/// <summary>
+		/// Will perform these actions in a context-attached, meaning they can potentially receive event,s if the worker threads have subscriber
+		/// </summary>
+		/// <param name="actions"></param>
+		public void Do(IEnumerable<Action<IEventContext>> actions)
 		{
-			
+			// just run all of the tasks
+			foreach (var action in actions)
+				action(this);
 		}
 		#endregion
 
